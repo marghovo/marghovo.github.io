@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hovhannes Margaryan — video generation & editing research</title>
+<meta name="description" content="Hovhannes Margaryan, PhD candidate at Université Paris-Saclay. Video continuation, interactive video editing, and subtle visual modification with AR + AI.">
+<meta property="og:title" content="Hovhannes Margaryan">
+<meta property="og:description" content="PhD candidate at Université Paris-Saclay — video continuation, interactive video editing, and subtle visual modification with AR + AI.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="portrait.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===================================================================
+   Hovhannes Margaryan — v2 "Frames & cuts"
+   The page is organised like a quiet editing timeline: a left rail
+   with a section timeline + playhead, and content laid out as frames.
+   =================================================================== */
+:root{
+  --bg:#0E0D0C;         /* near-black, warm */
+  --bg-2:#151413;       /* panels */
+  --bg-3:#1C1A19;       /* hover panels */
+  --ink:#F1EEE8;
+  --ink-2:#D3CFC7;
+  --ink-3:#8F8A81;
+  --line:rgba(241,238,232,.14);
+  --line-2:rgba(241,238,232,.18);
+  --accent:#E8694F;
+  --accent-ink:#0E0D0C;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+  --rail:260px;
+}
+[data-theme="light"]{
+  --bg:#F6F3EE; --bg-2:#EEEAE3; --bg-3:#E6E1D9;
+  --ink:#191714; --ink-2:#55514B; --ink-3:#8A857D;
+  --line:rgba(25,23,20,.10); --line-2:rgba(25,23,20,.2);
+  --accent:#C9442B; --accent-ink:#F6F3EE;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{overflow-x:hidden;max-width:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--accent);color:var(--accent-ink)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--accent);color:var(--accent-ink);padding:8px 14px;z-index:20}
+.skip:focus{left:12px;top:12px}
+.mono{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--ink-3)}
+
+/* ---------- layout: top bar + full-width content ---------- */
+.frame{display:block}
+.rail{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 5vw;height:60px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px)}
+.rail .name{font-family:var(--display);font-weight:500;font-size:16px;letter-spacing:-.01em;white-space:nowrap}
+.rail .name small{display:none}
+.tl{flex:1;overflow-x:auto;scrollbar-width:none}
+.tl::-webkit-scrollbar{display:none}
+.tl ol{list-style:none;margin:0;padding:0;display:flex;justify-content:flex-end;gap:28px}
+.tl li a{display:flex;align-items:baseline;gap:6px;font-size:13.5px;color:var(--ink-2);white-space:nowrap;padding:4px 0;border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.tl li a .tc{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.04em}
+.tl li.active a{color:var(--ink);border-bottom-color:var(--accent)}
+.tl li a:hover{color:var(--accent)}
+#playhead{position:fixed;left:0;top:59px;height:2px;width:0;background:var(--accent);z-index:11;transition:width .1s linear;pointer-events:none}
+.rail-foot{display:flex;align-items:center;gap:16px}
+.rail-foot .tc-now{font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.06em;white-space:nowrap}
+.rail-foot .tc-now b{color:var(--accent);font-weight:500}
+#theme-btn{background:none;border:1px solid var(--line-2);border-radius:999px;padding:6px 12px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-2);cursor:pointer;text-transform:uppercase;transition:all .15s}
+#theme-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+.content{min-width:0}
+.sec{padding:84px 5vw;border-bottom:1px solid var(--line)}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin:0 0 40px}
+.sec-head .tc{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.06em}
+.sec-head h2{font-family:var(--display);font-weight:500;font-size:30px;letter-spacing:-.02em;margin:0}
+
+/* ---------- hero ---------- */
+.hero{padding:110px 5vw 90px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:64px;align-items:center}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:0 0 22px;display:flex;align-items:center;gap:12px}
+.kicker::before{content:"";width:28px;height:1px;background:var(--accent)}
+h1{font-family:var(--display);font-weight:500;font-size:clamp(40px,4.6vw,62px);line-height:1.02;letter-spacing:-.03em;margin:0 0 26px;font-variation-settings:"opsz" 96}
+h1 em{font-style:normal;color:var(--accent)}
+.lede{font-size:17.5px;color:var(--ink-2);max-width:none;padding-right:2%;margin:0 0 18px;text-align:justify;text-wrap:pretty}
+.lede + .lede{margin-bottom:34px}
+.lede a{color:var(--ink);border-bottom:1px solid var(--ink-3)} .lede a:hover{color:var(--accent);border-color:var(--accent)}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:11px 18px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink);transition:all .15s;display:inline-flex;gap:8px;align-items:center}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn svg{width:14px;height:14px}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border:1px solid var(--line-2);border-radius:50%;color:var(--ink-2);transition:all .15s}
+.icon-btn svg{width:18px;height:18px}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent);transform:translateY(-2px)}
+
+.viewfinder{position:relative;justify-self:end;width:100%;max-width:400px}
+.viewfinder img{display:block;width:100%;aspect-ratio:1000/1188;object-fit:cover;border-radius:6px}
+.viewfinder::before,.viewfinder::after,.viewfinder i::before,.viewfinder i::after{content:"";position:absolute;width:18px;height:18px;border-color:var(--accent);border-style:solid;border-width:0}
+.viewfinder::before{top:-10px;left:-10px;border-top-width:1.5px;border-left-width:1.5px}
+.viewfinder::after{top:-10px;right:-10px;border-top-width:1.5px;border-right-width:1.5px}
+.viewfinder i::before{bottom:-10px;left:-10px;border-bottom-width:1.5px;border-left-width:1.5px}
+.viewfinder i::after{bottom:-10px;right:-10px;border-bottom-width:1.5px;border-right-width:1.5px}
+.viewfinder figcaption{position:absolute;left:0;right:0;bottom:-30px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-3)}
+.viewfinder figcaption b{color:var(--accent);font-weight:500}
+
+.viewfinder.circle{max-width:360px}
+.viewfinder.circle img{aspect-ratio:1/1;border-radius:50%;object-position:50% 22%;border:1px solid var(--line-2)}
+.viewfinder.circle::before,.viewfinder.circle::after,.viewfinder.circle i::before,.viewfinder.circle i::after,.viewfinder.circle figcaption{display:none}
+
+/* ---------- research frames ---------- */
+.frames{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.fr{position:relative;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:26px 26px 24px;transition:background .2s,border-color .2s}
+.fr:hover{background:var(--bg-3);border-color:var(--line-2)}
+.fr .tc{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--accent);margin:0 0 14px;display:flex;align-items:center;gap:10px}
+.fr .tc::after{content:"";flex:1;height:1px;background:var(--line)}
+.fr h3{font-family:var(--display);font-weight:500;font-size:20px;letter-spacing:-.015em;margin:0 0 10px}
+.fr p{margin:0;font-size:14.5px;color:var(--ink-2)}
+.fr .ref{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+.fr .ref a{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:4px 10px;transition:all .15s}
+.fr .ref a:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ---------- news ---------- */
+.news{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.news li{display:grid;grid-template-columns:110px 1fr;gap:24px;padding:16px 0;border-bottom:1px solid var(--line);font-size:15px}
+.news time{font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.04em;padding-top:3px}
+.news p{margin:0;color:var(--ink-2)}
+.news strong{color:var(--ink);font-weight:500}
+.news strong.venue{color:var(--accent)}
+.news a{border-bottom:1px solid var(--ink-3)} .news a:hover,.news a:hover strong{color:var(--accent);border-color:var(--accent)}
+
+/* ---------- publications ledger ---------- */
+.pub{display:grid;grid-template-columns:56px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--line)}
+.pub:last-child{border-bottom:1px solid var(--line)}
+.pub .idx{font-family:var(--display);font-weight:300;font-size:28px;color:var(--ink-3);line-height:1;padding-top:2px}
+.pub-venue{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0 0 8px}
+.pub-title{font-family:var(--display);font-weight:500;font-size:21px;line-height:1.25;letter-spacing:-.015em;margin:0 0 8px}
+.pub-title a:hover{color:var(--accent)}
+.pub-authors{font-size:14px;color:var(--ink-2);margin:0 0 12px}
+.pub-authors .me{color:var(--ink);font-weight:500}
+.pub-note{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--ink-3);margin:-6px 0 12px}
+.pub-links{display:flex;gap:8px;flex-wrap:wrap}
+.pub-links a,.pub-links button{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--ink-2);background:none;border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer;transition:all .15s}
+.pub-links a:hover,.pub-links button:hover,.pub-links button[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
+.pub-links .todo{opacity:.4;cursor:default} .pub-links .todo:hover{color:var(--ink-2);border-color:var(--line)}
+.pub-extra{display:none;margin-top:16px;padding:16px 18px;background:var(--bg-2);border-left:2px solid var(--accent);border-radius:0 8px 8px 0;font-size:14px;color:var(--ink-2)}
+.pub-extra.open{display:block}
+.pub-extra pre{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.pub-extra p{margin:0}
+
+/* ---------- entries (talks / experience / education) ---------- */
+.entry{display:grid;grid-template-columns:200px 1fr;gap:28px;padding:22px 0;border-top:1px solid var(--line)}
+.entry:last-child{border-bottom:1px solid var(--line)}
+.entry .when{font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.04em;padding-top:4px;line-height:1.5;white-space:nowrap}
+.entry .when .sub{opacity:.7}
+.entry p b{font-weight:500;color:var(--ink)}
+.entry p em{font-style:italic;color:var(--ink)}
+.bullets b{font-weight:500;color:var(--ink)}
+.entry p strong.venue{color:var(--accent);font-weight:500}
+.entry h3{font-family:var(--display);font-weight:500;font-size:18px;letter-spacing:-.01em;margin:0 0 4px}
+.entry .where{font-size:14px;color:var(--accent);margin:0 0 8px}
+.entry p{margin:0;font-size:14.5px;color:var(--ink-2)}
+.entry a{border-bottom:1px solid var(--ink-3)} .entry a:hover{color:var(--accent);border-color:var(--accent)}
+.entry .lnk{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:var(--ink-3)}
+.bullets{margin:4px 0 0;padding-left:18px;font-size:14.5px;color:var(--ink-2)} .bullets li{margin-bottom:7px}
+details.more{margin-top:10px}
+details.more summary{font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;color:var(--ink-3);cursor:pointer;list-style:none}
+details.more summary::before{content:"+ "} details[open].more summary::before{content:"− "}
+details.more summary:hover{color:var(--accent)}
+details.more ul{margin:10px 0 0;padding-left:18px;font-size:14px;color:var(--ink-2)} details.more li{margin-bottom:6px}
+
+/* ---------- contact ---------- */
+.contact{padding:84px 5vw 96px}
+.contact h2{font-family:var(--display);font-weight:500;font-size:clamp(28px,3.4vw,44px);letter-spacing:-.025em;margin:0 0 18px;line-height:1.1}
+.contact h2 a{border-bottom:2px solid var(--accent)} .contact h2 a:hover{color:var(--accent)}
+.contact .meta{display:flex;gap:28px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:var(--ink-3)}
+.contact .meta a:hover{color:var(--accent)}
+
+
+/* ---------- motion: ambient blobs + reveal flow ---------- */
+.ambient{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;animation:drift 26s ease-in-out infinite alternate}
+.blob-1{width:55vw;height:55vw;max-width:640px;max-height:640px;top:-18vh;left:-12vw;background:rgba(232,105,79,.14)}
+.blob-2{width:48vw;height:48vw;max-width:560px;max-height:560px;bottom:-16vh;right:-10vw;background:rgba(241,238,232,.07);animation-delay:-9s}
+.blob-3{width:60vw;height:60vw;max-width:700px;max-height:700px;top:40%;left:45%;background:rgba(232,105,79,.06);animation-delay:-17s}
+[data-theme="light"] .blob-1{background:rgba(201,68,43,.12)} [data-theme="light"] .blob-2{background:rgba(25,23,20,.06)} [data-theme="light"] .blob-3{background:rgba(201,68,43,.05)}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}33%{transform:translate(5vw,-5vh) scale(1.08)}66%{transform:translate(-3vw,7vh) scale(.94)}100%{transform:translate(4vw,3vh) scale(1)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+.hero > div > *, .hero .viewfinder{opacity:0;animation:riseIn 1s cubic-bezier(.16,1,.3,1) forwards}
+.hero .kicker{animation-delay:.05s} .hero h1{animation-delay:.15s} .hero .lede{animation-delay:.28s} .hero .lede + .lede{animation-delay:.36s} .hero .actions{animation-delay:.4s} .hero .viewfinder{animation-delay:.25s}
+.reveal > .sec-head, .reveal .news > li, .reveal .pub, .reveal .entry, .reveal.contact > *{opacity:0}
+.reveal.visible > .sec-head, .reveal.visible .news > li, .reveal.visible .pub, .reveal.visible .entry, .reveal.visible.contact > *{animation:riseIn 1s cubic-bezier(.16,1,.3,1) forwards}
+.reveal.visible > .sec-head{animation-delay:.05s}
+.reveal.visible .news > li:nth-child(n), .reveal.visible .pub:nth-child(n), .reveal.visible .entry:nth-child(n){animation-delay:calc(.12s + var(--i,0)*.09s)}
+@media (prefers-reduced-motion:reduce){
+  .blob{animation:none}
+  .hero > div > *, .hero .viewfinder, .reveal > .sec-head, .reveal .news > li, .reveal .pub, .reveal .entry, .reveal.contact > *{opacity:1;animation:none}
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:1200px){ .frames{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:980px){
+  .rail{padding:0 20px} .tl ol{justify-content:flex-start;gap:18px} .tl li a .tc{display:none} .rail-foot .tc-now{display:none}
+  .hero{grid-template-columns:1fr;padding:56px 24px 48px;gap:40px}
+  .viewfinder{justify-self:start;max-width:300px}
+  .sec,.contact{padding:56px 24px}
+  .frames{grid-template-columns:1fr}
+  .news li{grid-template-columns:84px 1fr;gap:14px}
+  .entry{grid-template-columns:1fr;gap:4px}
+  .pub{grid-template-columns:1fr} .pub .idx{display:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="ambient" aria-hidden="true"><div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div></div>
+<span id="playhead" aria-hidden="true"></span>
+<div class="frame">
+<aside class="rail" aria-label="Site navigation">
+  <nav class="tl" aria-label="Sections">
+    <ol id="tl-list">
+      <li data-sec="top"><a href="#top"><span>Intro</span></a></li>
+      <li data-sec="news"><a href="#news"><span>News</span></a></li>
+      <li data-sec="publications"><a href="#publications"><span>Papers</span></a></li>
+      <li data-sec="talks"><a href="#talks"><span>Talks</span></a></li>
+      <li data-sec="service"><a href="#service"><span>Service</span></a></li>
+      <li data-sec="experience"><a href="#experience"><span>Experience</span></a></li>
+      <li data-sec="education"><a href="#education"><span>Education</span></a></li>
+      <li data-sec="schools"><a href="#schools"><span>Schools</span></a></li>
+      <li data-sec="contact"><a href="#contact"><span>Contact</span></a></li>
+    </ol>
+  </nav>
+  <div class="rail-foot">
+    <button id="theme-btn" aria-label="Toggle light and dark theme">Light</button>
+  </div>
+</aside>
+
+<main id="main" class="content">
+
+<header class="hero" id="top">
+  <div>
+    <p class="kicker">PhD candidate · Computer Science · Paris, France · Expected graduation Dec. 2027</p>
+    <h1>Hovhannes Margaryan</h1>
+    <p class="lede">I am a PhD candidate in Computer Science at <a href="https://www.universite-paris-saclay.fr/" target="_blank" rel="noopener">Université Paris-Saclay</a>, supervised by <a href="https://vicky.kalogeiton.info/" target="_blank" rel="noopener">Prof. Vicky Kalogeiton</a>, <a href="https://bammey.com/" target="_blank" rel="noopener">Prof. Quentin Bammey</a>, and <a href="https://drsandor.net/" target="_blank" rel="noopener">Prof. Christian Sandor</a>. Previously, I was an applied Research Scientist at <a href="https://picsart.com" target="_blank" rel="noopener">Picsart AI Research</a> (PAIR).</p>
+    <p class="lede">My research focuses on real-time video generation and editing using autoregressive diffusion and flow matching models. I am also interested in controllable video generation, interactive visual editing, and world models.</p>
+    <div class="actions">
+      <a class="icon-btn" href="mailto:marg.hovo@gmail.com" aria-label="Email" title="Email">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      </a>
+      <a class="icon-btn" href="https://scholar.google.com/citations?user=j5-vgYYAAAAJ&hl=en" target="_blank" rel="noopener" title="Google Scholar" aria-label="Google Scholar">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 1 9l4.5 2.45v4.05c0 .6 2.9 2.5 6.5 2.5s6.5-1.9 6.5-2.5v-4.05L21.5 9.7v4.8h1.5V9L12 3Zm6 8.6v3.6c-.8.6-3 1.55-6 1.55s-5.2-.95-6-1.55v-3.6L12 14.5l6-2.9Z"/></svg>
+      </a>
+      <a class="icon-btn" href="https://www.linkedin.com/in/hovhannes-margaryan-a7aa39102/" target="_blank" rel="noopener" title="LinkedIn" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5ZM.5 8h4V23h-4V8Zm7.5 0h3.8v2.05h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V23h-4v-7.9c0-1.9-.03-4.3-2.62-4.3-2.63 0-3.03 2.05-3.03 4.17V23H8V8Z"/></svg>
+      </a>
+      <a class="icon-btn" href="https://github.com/marghovo" target="_blank" rel="noopener" title="GitHub" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.09 0 4.42-2.7 5.39-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.52 11.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+      </a>
+      <a class="icon-btn" href="#" title="CV — add PDF" aria-label="CV">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
+      </a>
+    </div>
+  </div>
+  <figure class="viewfinder" aria-label="Portrait">
+    <img src="portrait.jpg" alt="Portrait of Hovhannes Margaryan"><i aria-hidden="true"></i>
+    
+  </figure>
+</header>
+
+
+<section class="sec reveal" id="news" aria-labelledby="news-h">
+  <div class="sec-head"><h2 id="news-h">News</h2></div>
+  <ul class="news">
+    <li><time datetime="2026-10">2026 · 10</time><p>Recognized as a <strong>Top Reviewer</strong> at <strong class="venue">NeurIPS 2026</strong>.</p></li>
+    <li><time datetime="2026-09">2026 · 09</time><p><strong>AR-Edit</strong>: Training-Free Streaming Video Editing without Inversion; accepted at <strong class="venue">NeurIPS 2026</strong>.</p></li>
+    <li><time datetime="2026-06">2026 · 06</time><p><a href="https://arxiv.org/pdf/2604.17625" target="_blank" rel="noopener"><strong>FlowC2S</strong></a>; fast, memory-efficient video continuation; accepted to <strong class="venue">CVPR Findings 2026</strong>.</p></li>
+    <li><time datetime="2025-10">2025 · 10</time><p><a href="https://arxiv.org/abs/2510.02599" target="_blank" rel="noopener"><strong>PEO</strong></a>, training-free aesthetic quality enhancement for text-to-image diffusion, is out on <strong class="venue">arXiv</strong>.</p></li>
+    <li><time datetime="2025-04">2025 · 04</time><p>Gave a <a href="https://drive.google.com/file/d/1gTNnSQnyApjFo-AoFxzflRx990ZyXYZt/view" target="_blank" rel="noopener">talk</a> at <strong>ENPC</strong> (<a href="https://imagine-lab.enpc.fr" target="_blank" rel="noopener"><strong>IMAGINE team</strong></a>) on text-to-video generation, stream synthesis, and editing.</p></li>
+    <li><time datetime="2025-01">2025 · 01</time><p>Participated in the <a href="https://elias-ai.eu/event/ellis-vismac/" target="_blank" rel="noopener"><strong>ELIAS–ELLIS–VISMAC Winter School</strong></a> in Brunico, Italy.</p></li>
+    <li><time datetime="2024-10">2024 · 10</time><p>Started my <strong>PhD</strong> at Université Paris-Saclay.</p></li>
+    <li><time datetime="2024-06">2024 · 06</time><p><a href="https://openaccess.thecvf.com/content/CVPR2024W/3DMV/papers/Margaryan_DGBD_Depth_Guided_Branched_Diffusion_for_Comprehensive_Controllability_in_Multi-View_CVPRW_2024_paper.pdf" target="_blank" rel="noopener"><strong>DGBD</strong></a>, depth-guided branched diffusion for multi-view generation, accepted at <strong class="venue">CVPR Workshops 2024</strong>.</p></li>
+  </ul>
+</section>
+
+<section class="sec reveal" id="publications" aria-labelledby="pub-h">
+  <div class="sec-head"><h2 id="pub-h">Publications</h2></div>
+  <div id="pub-list"></div>
+</section>
+
+<section class="sec reveal" id="talks" aria-labelledby="talks-h">
+  <div class="sec-head"><h2 id="talks-h">Talks</h2></div>
+  <div class="entry">
+    <div class="when">2025 · 04</div>
+    <div>
+      <h3>Text-to-Video Generation, Stream Synthesis, and Editing: Recent Advances and Future Directions</h3>
+      <p class="where"><a href="https://imagine-lab.enpc.fr" target="_blank" rel="noopener">IMAGINE</a> · ENPC</p>
+      <p><a class="lnk" href="https://drive.google.com/file/d/1gTNnSQnyApjFo-AoFxzflRx990ZyXYZt/view" target="_blank" rel="noopener">slides ↗</a></p>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="when">2022 · 09</div>
+    <div>
+      <h3>Classical Texture Synthesis and Beyond</h3>
+      <p class="where"><a href="https://pydata.org/yerevan2022/" target="_blank" rel="noopener">PyData Yerevan</a></p>
+      <p><a class="lnk" href="https://www.youtube.com/watch?v=vY46iIxzLuY" target="_blank" rel="noopener">recording ↗</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec reveal" id="service" aria-labelledby="svc-h">
+  <div class="sec-head"><h2 id="svc-h">Academic service</h2></div>
+  <div class="entry">
+    <div class="when">Reviewer</div>
+    <div><p>CVIU · NeurIPS 2026 (<strong class="venue">Top Reviewer</strong>)</p></div>
+  </div>
+</section>
+
+<section class="sec reveal" id="experience" aria-labelledby="exp-h">
+  <div class="sec-head"><h2 id="exp-h">Experience</h2></div>
+  <div class="entry">
+    <div class="when">2019 — 2024</div>
+    <div>
+      <h3>Applied Research Scientist</h3>
+      <p class="where"><a href="https://picsart.com" target="_blank" rel="noopener">Picsart AI Research</a> (PAIR) · Yerevan, Armenia</p>
+      <p>Research and production work on generative imaging: controllable multi-view generation, personalized text-to-image models, and on-device creative effects for ~150M monthly users.</p>
+      <details class="more">
+        <summary>details</summary>
+      <ul class="bullets">
+        <li>Authored a <b>first-author</b> paper on controllable multi-view generation with diffusion models (<a href="https://openaccess.thecvf.com/content/CVPR2024W/3DMV/papers/Margaryan_DGBD_Depth_Guided_Branched_Diffusion_for_Comprehensive_Controllability_in_Multi-View_CVPRW_2024_paper.pdf" target="_blank" rel="noopener">DGBD</a>).</li>
+        <li>Co-developed personalized text-to-image diffusion models for production features (e.g., <a href="https://aiavatar.com/" target="_blank" rel="noopener">AI Avatar Generator</a>).</li>
+        <li>Built plug-and-play text-to-image pipelines for in-app effects (e.g., Infinite Loop Effect at <b>4K resolution</b>).</li>
+        <li>Developed facial inpainting models (Smile Effect, Wrinkle Generation) shipped in the Retouch section of the Picsart app (<b>~150M monthly active users</b>).</li>
+        <li>Built a controllable C++ image outpainting solution for mobile, handling <b>up to 4K images in 1.5 to 5 seconds</b>.</li>
+        <li>Compressed production models (e.g., Sketch Effect) <b>up to 3×</b> with post-training and quantization.</li>
+      </ul>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="sec reveal" id="education" aria-labelledby="edu-h">
+  <div class="sec-head"><h2 id="edu-h">Education</h2></div>
+  <div class="entry">
+    <div class="when">Oct. 2024 – Dec. 2027<br><span class="sub">(expected)</span></div>
+    <div>
+      <h3>Ph.D. in Computer Science</h3>
+      <p class="where">Université Paris-Saclay · Paris, France</p>
+      <p><b>Thesis:</b> <em>Enabling Subtle Visual Modifications with Augmented Reality and Artificial Intelligence</em></p>
+      <p><b>Advisors:</b> <a href="https://vicky.kalogeiton.info/" target="_blank" rel="noopener">Prof. Vicky Kalogeiton</a>, <a href="https://bammey.com/" target="_blank" rel="noopener">Prof. Quentin Bammey</a>, <a href="https://drsandor.net/" target="_blank" rel="noopener">Prof. Christian Sandor</a></p>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="when">Sept. 2021 – Jul. 2024</div>
+    <div>
+      <h3>M.Sc. in Statistics and Data Science</h3>
+      <p class="where">KU Leuven · Leuven, Belgium</p>
+      <p><b>Thesis:</b> <em>Aesthetic Quality Enhancement in Text-to-Image Models</em> (<a href="https://arxiv.org/abs/2510.02599" target="_blank" rel="noopener">PEO</a>)</p>
+      <p><b>Advisors:</b> <a href="https://bwancv.github.io" target="_blank" rel="noopener">Dr. Bo Wan</a>, <a href="https://www.esat.kuleuven.be/psi/TT" target="_blank" rel="noopener">Prof. Tinne Tuytelaars</a></p>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="when">Aug. 2015 – May 2019</div>
+    <div>
+      <h3>B.S. in Computer Science</h3>
+      <p class="where">American University of Armenia · Yerevan, Armenia</p>
+      <p><b>Thesis:</b> <em>Autoregressive GAN for time series forecasting</em>. <a href="https://github.com/marghovo/Time-Series-Anomaly-Detection-by-GANs" target="_blank" rel="noopener">Project</a></p>
+      <p><b>Advisor:</b> <a href="https://people.aua.am/team_member/arnak-poghosyan-phd/" target="_blank" rel="noopener">Arnak Poghosyan</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec reveal" id="schools" aria-labelledby="sch-h">
+  <div class="sec-head"><h2 id="sch-h">Schools &amp; seminars</h2></div>
+  <div class="entry">
+    <div class="when">Jan. 2025</div>
+    <div>
+      <h3>ELIAS–ELLIS–VISMAC Winter School</h3>
+      <p class="where"><a href="https://elias-ai.eu/event/ellis-vismac/" target="_blank" rel="noopener">elias-ai.eu</a> · Brunico, Italy</p>
+      <p>Led a team exploring test-time compute approaches to improve LMM performance on NaturalBench. <a class="lnk" href="https://docs.google.com/presentation/d/1IFS9v0aYSHZJaZUlhWT90R7yss2Q2H5e8sDLEsKjOb4/edit?usp=sharing" target="_blank" rel="noopener">presentation ↗</a></p>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="when">Mar. – June 2021</div>
+    <div>
+      <h3>Scientific Seminar on Computer Vision</h3>
+      <p class="where">TU Wien · Vienna, Austria</p>
+      <p>Reviewed SOTA human pose transfer methods and wrote a comparative analysis paper. <a class="lnk" href="https://drive.google.com/file/d/1jM7fsU9j6XC20lUCtOXoc2lrEJjKvBnp/view?usp=sharing" target="_blank" rel="noopener">paper ↗</a></p>
+    </div>
+  </div>
+</section>
+
+<footer class="contact reveal" id="contact">
+    <h2>Working on streaming video editing or generation? <a href="mailto:marg.hovo@gmail.com">Let's talk.</a></h2>
+  <div class="meta">
+    <a href="mailto:marg.hovo@gmail.com">marg.hovo@gmail.com</a>
+    <span>© 2026 Hovhannes Margaryan</span>
+  </div>
+</footer>
+
+</main>
+</div>
+
+<script src="publications.js"></script>
+<script>
+/* ---- publications (rendered from publications.js) ---- */
+const PUBLICATIONS = window.PUBLICATIONS || [];
+const ME = "Hovhannes Margaryan";
+const list = document.getElementById("pub-list");
+PUBLICATIONS.filter(p=>!p.hidden).sort((a,b)=>(a.order||99)-(b.order||99)).forEach((p,i)=>{
+  const authors = p.authors.map(a=>a===ME?`<span class="me">${a}</span>`:a).join(", ");
+  const link = (label,url)=>{
+    if(url===undefined) return "";
+    return url ? `<a href="${url}" target="_blank" rel="noopener">${label} ↗</a>`
+               : `<a class="todo" href="#" onclick="return false" title="URL coming soon">${label}</a>`;
+  };
+  list.insertAdjacentHTML("beforeend",`
+  <article class="pub">
+    <div class="idx">${String(i+1).padStart(2,"0")}</div>
+    <div>
+      <p class="pub-venue">${p.venue} · ${p.year}</p>
+      <h3 class="pub-title"><a href="${p.links.paper||p.links.website||'#publications'}">${p.title}</a></h3>
+      <p class="pub-authors">${authors}</p>
+      ${p.note?`<p class="pub-note">${p.note}</p>`:""}
+      <div class="pub-links">
+        ${link("website",p.links.website)}${link("paper",p.links.paper)}${link("code",p.links.code)}
+        <button aria-expanded="false" onclick="togglePanel(this,'${p.id}-abs')">abstract</button>
+        <button aria-expanded="false" onclick="togglePanel(this,'${p.id}-bib')">bibtex</button>
+      </div>
+      <div class="pub-extra" id="${p.id}-abs" data-arxiv="${p.arxivId||""}"><p>${p.abstract||(p.arxivId?"":"Abstract coming soon.")}</p></div>
+      <div class="pub-extra" id="${p.id}-bib">${p.bibtex?`<pre>${p.bibtex}</pre>`:`<p>BibTeX coming soon.</p>`}</div>
+    </div>
+  </article>`);
+});
+async function loadAbstract(el){
+  const id = el.dataset.arxiv, target = el.querySelector("p");
+  if(!id || el.dataset.loaded || target.textContent.trim()) return;
+  el.dataset.loaded="1"; target.textContent="Loading abstract…";
+  try{ const r=await fetch("https://api.semanticscholar.org/graph/v1/paper/arXiv:"+id+"?fields=abstract"); const j=await r.json();
+       target.textContent=(j.abstract||"").trim()||"Abstract coming soon — see the paper link above."; }
+  catch(e){ target.textContent="Abstract coming soon — see the paper link above."; }
+}
+function togglePanel(btn,id){
+  const el=document.getElementById(id), open=el.classList.toggle("open");
+  btn.setAttribute("aria-expanded",open); if(open) loadAbstract(el);
+  const wrap=el.parentElement;
+  wrap.querySelectorAll(".pub-extra").forEach(s=>{if(s!==el)s.classList.remove("open")});
+  wrap.querySelectorAll("button[aria-expanded]").forEach(b=>{if(b!==btn)b.setAttribute("aria-expanded","false")});
+}
+
+/* ---- theme ---- */
+const root=document.documentElement, tbtn=document.getElementById("theme-btn");
+function paintTheme(){ tbtn.textContent = root.dataset.theme==="dark" ? "Light" : "Dark"; }
+try{ const s=localStorage.getItem("theme"); if(s) root.dataset.theme=s; }catch(e){}
+paintTheme();
+tbtn.addEventListener("click",()=>{ root.dataset.theme=root.dataset.theme==="dark"?"light":"dark"; paintTheme(); try{localStorage.setItem("theme",root.dataset.theme)}catch(e){} });
+
+/* ---- timeline rail: playhead + timecode follow scroll ----
+   The left rail is a section timeline. The coral playhead slides between
+   section ticks according to scroll position, and the timecode readout
+   shows page progress — a quiet nod to the editing timelines I work on. */
+(function(){
+  const items=[...document.querySelectorAll("#tl-list li")];
+  const secs=items.map(li=>document.getElementById(li.dataset.sec));
+  const head=document.getElementById("playhead");
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function update(){
+    const y=scrollY+innerHeight*0.35;
+    let idx=0; secs.forEach((s,i)=>{ if(s && s.offsetTop<=y) idx=i; });
+    items.forEach((li,i)=>li.classList.toggle("active",i===idx));
+    const doc=document.documentElement, prog=scrollY/Math.max(1,doc.scrollHeight-innerHeight);
+    const total=Math.round(prog*7*60); const m=String(Math.floor(total/60)).padStart(2,"0"), s=String(total%60).padStart(2,"0");
+        if(head) head.style.width=(prog*100)+"%";
+  }
+  addEventListener("scroll",update,{passive:true}); addEventListener("resize",update); update();
+  if(reduce && head) head.style.transition="none";
+})();
+
+/* ---- reveal flow: sections rise in as they enter the viewport ---- */
+(function(){
+  document.querySelectorAll('.reveal').forEach(sec=>{
+    sec.querySelectorAll('.news > li, .pub, .entry').forEach((el,i)=>el.style.setProperty('--i', Math.min(i,10)));
+  });
+  if(!('IntersectionObserver' in window)){ document.querySelectorAll('.reveal').forEach(s=>s.classList.add('visible')); return; }
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target);} });
+  },{rootMargin:'0px 0px -12% 0px', threshold:0.08});
+  document.querySelectorAll('.reveal').forEach(s=>io.observe(s));
+})();
+
+/* ---- start at the top on reload; nav links scroll without changing the URL ---- */
+if('scrollRestoration' in history) history.scrollRestoration='manual';
+if(location.hash){ history.replaceState(null,'',location.pathname+location.search); }
+addEventListener('load',()=>scrollTo(0,0));
+document.querySelectorAll('.tl a[href^="#"], .actions a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{ const el=document.getElementById(a.getAttribute('href').slice(1)); if(!el) return; e.preventDefault(); el.scrollIntoView({behavior:'smooth',block:'start'}); });
+});
+</script>
+</body>
+</html>
