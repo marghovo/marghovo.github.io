@@ -19,7 +19,7 @@
 window.PUBLICATIONS = /* SYNC-JSON-START */ [
   {
     "id": "margaryan2026aredit",
-    "title": "AR-Edit: Training-Free Streaming Video Editing without Inversion",
+    "title": "AR-Edit: Training-Free Autoregressive Video Editing without Inversion",
     "authors": [
       "Hovhannes Margaryan",
       "Quentin Bammey",
